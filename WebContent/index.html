@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Medlemsliste</title>
+<script type="text/javascript" src="skript/config.js"></script>
+<script type="text/javascript" src="skript/ajax/ajax.js"></script>
+<script type="text/javascript">
+	"use strict";
+
+	(function() {
+
+		var logIdElm = null;
+		var memberIdElm = null;
+
+		var load = function() {
+			logIdElm = document.getElementById("logId");
+			document.getElementById("newMember").addEventListener("click",
+					newMember, false);
+			memberIdElm = document.getElementById("slettId");
+			getUpdates();
+		};
+
+		var getUpdates = function(e) {
+			logIdElm = document.getElementById("logId");
+			var url = config.servicesPath + "/endringer";
+			var ajax = new AJAXConnection(url);
+			ajax.onsuccess = viewMessage;
+			ajax.get([ logIdElm.value ]);
+		};
+
+		var deleteMember = function(mId) {
+			document.getElementById("slettId").value = mId;
+			memberIdElm = document.getElementById("slettId");
+			var url = config.servicesPath + "/slett";
+			var ajax = new AJAXConnection(url);
+			ajax.onsuccess = null;
+			ajax.del([ memberIdElm.value ]);
+		};
+
+		var changeMember = function(member) {
+			//Sender member informasjon til medlemsendringsiden
+			window.open("medlemEndre.html?memId=" + member.memberId
+					+ "&firstName=" + member.firstname + "&lastName="
+					+ member.lastname + "&adress=" + member.address + "&phone="
+					+ member.phone);
+		}
+
+		var newMember = function() {
+			window.open("medlemLeggtil.html");
+		};
+
+		var viewMessage2 = function(m) {
+			document.getElementById("svar").textContent = "";
+		};
+
+		var viewMessage = function(m) {
+			var data = JSON.parse(m);
+			if (logIdElm != data.updates.logId) {
+				var Array = data.updates.newMembers;
+				var arrayForDeleted = data.updates.deletedMembers;
+				var arrayForUpdated = data.updates.updatedMembers;
+				
+				//Henter medlemmer fra databasen og legger det i en HTML tabell
+				//knappene er dynamisk laget
+				if (Object.prototype.toString.call(Array) === '[object Array]') {
+					var table = document.getElementById("medlemstabell");
+					for (var i = 0; i < data.updates.newMembers.length; i++) {
+						(function(index) {
+							var z = data.updates.newMembers[index].memberId;
+							var w = data.updates.newMembers[index];
+							var row = table.insertRow(table.rows.length);
+							var cell1 = row.insertCell(0);
+							var cell2 = row.insertCell(1);
+							var cell3 = row.insertCell(2);
+							var cell4 = row.insertCell(3);
+							var cell5 = row.insertCell(4);
+							var cell6 = row.insertCell(5);
+							var cell7 = row.insertCell(6);
+							cell1.innerHTML = data.updates.newMembers[i].firstname;
+							cell2.innerHTML = data.updates.newMembers[i].lastname;
+							cell3.innerHTML = data.updates.newMembers[i].address;
+							cell4.innerHTML = data.updates.newMembers[i].phone;
+							cell5.value = data.updates.newMembers[i].memberId;
+							cell6.innerHTML = '<button id="deleteMember' + i +'" value="Array.memberId">Slett</button>';
+							document.getElementById("deleteMember" + i)
+									.addEventListener("click", function() {
+										deleteMember(z);
+									}, false);
+							cell7.innerHTML = '<button id="changeMember' + i + '">Endre</button>';
+							document.getElementById("changeMember" + i)
+									.addEventListener("click", function() {
+										changeMember(w);
+									}, false);
+						})(i);
+					}
+				}
+
+				//Hvis det bare er en medlem som skal bli lagt til
+				//kjører denne istedenfor
+				else if (Array) {
+					var z = Array.memberId;
+					var table = document.getElementById("medlemstabell");
+					var row = table.insertRow(table.rows.length);
+					var cell1 = row.insertCell(0);
+					var cell2 = row.insertCell(1);
+					var cell3 = row.insertCell(2);
+					var cell4 = row.insertCell(3);
+					var cell5 = row.insertCell(4);
+					var cell6 = row.insertCell(5);
+					var cell7 = row.insertCell(6);
+
+					cell1.innerHTML = Array.firstname;
+					cell2.innerHTML = Array.lastname;
+					cell3.innerHTML = Array.address;
+					cell4.innerHTML = Array.phone;
+					cell5.value = Array.memberId;
+					cell6.innerHTML = '<button id="deleteMember' + Array.memberId + '">Slett</button>';
+					document.getElementById("deleteMember" + Array.memberId)
+							.addEventListener("click", function() {
+								deleteMember(z);
+							}, false);
+					cell7.innerHTML = '<button id="changeMember' + Array.memberId + '">Endre</button>';
+					document.getElementById("changeMember" + Array.memberId)
+							.addEventListener("click", function() {
+								changeMember(Array);
+							}, false);
+				}
+
+				//sjekker om arrayForDeleted har mer enn en medlem
+				//og så sletter alle radene med korresponderende
+				//medlems ID
+				if (Object.prototype.toString.call(arrayForDeleted) === '[object Array]') {
+					var table = document.getElementById("medlemstabell");
+					for (var y = 0; y < arrayForDeleted.length; y++) {
+						for (var i = 1; i < table.rows.length; i++) {
+							row = table.rows[i];
+							if (row.cells[4].value == arrayForDeleted[y]) {
+								document.getElementById("medlemstabell")
+										.deleteRow(i);
+							}
+						}
+					}
+				}
+
+				//kjøres hvis det er bare en slettet medlem
+				else if (arrayForDeleted) {
+					var table = document.getElementById("medlemstabell");
+					for (var i = 1; i < table.rows.length; i++) {
+						row = table.rows[i];
+						if (row.cells[4].value == arrayForDeleted) {
+							document.getElementById("medlemstabell").deleteRow(
+									i);
+						}
+					}
+				}
+				
+				//Hvis to eller flere medlemmer skal endres (array) finner denne
+				//den korresponderende medlemsID'en og erstatter de fleste verdiene
+				//Endre knappen blir laget på nytt, på grunn av nye verdier
+				if (Object.prototype.toString.call(arrayForUpdated) === '[object Array]') {
+					var table = document.getElementById("medlemstabell");
+					for (var y = 0; y < arrayForUpdated.length; y++) {
+						for (var i = 1; i < table.rows.length; i++) {
+							row = table.rows[i];
+							if (row.cells[4].value == arrayForUpdated[y].memberId) {
+								row.cells[0].textContent = arrayForUpdated[y].firstname;
+								row.cells[1].textContent = arrayForUpdated[y].lastname;
+								row.cells[2].textContent = arrayForUpdated[y].address;
+								row.cells[3].textContent = arrayForUpdated[y].phone;
+								var indx = y;
+								row.cells[6].innerHTML = '<button id="changeMember' + arrayForUpdated[y].memberId + '">Endre</button>';
+								document.getElementById(
+										"changeMember" + arrayForUpdated[y].memberId)
+										.addEventListener("click", function() {
+											changeMember(arrayForUpdated[indx]);
+										}, false);
+							}
+						}
+					}
+				}
+				
+				//Samme som forrige, bare for en medlem
+				else if (arrayForUpdated) {
+					var table = document.getElementById("medlemstabell");
+					for (var i = 1; i < table.rows.length; i++) {
+						row = table.rows[i];
+						if (row.cells[4].value == arrayForUpdated.memberId) {
+							row.cells[0].textContent = arrayForUpdated.firstname;
+							row.cells[1].textContent = arrayForUpdated.lastname;
+							row.cells[2].textContent = arrayForUpdated.address;
+							row.cells[3].textContent = arrayForUpdated.phone;
+							row.cells[6].innerHTML = '<button id="changeMember' + arrayForUpdated.memberId + '">Endre</button>';
+							document.getElementById(
+									"changeMember" + arrayForUpdated.memberId)
+									.addEventListener("click", function() {
+										changeMember(arrayForUpdated);
+									}, false);
+						}
+					}
+				}
+			}
+			document.getElementById("logId").value = data.updates.logId;
+		};
+		window.addEventListener("DOMContentLoaded", load, false);
+		setInterval(function() {
+			getUpdates()
+		}, 1000);
+	})()
+</script>
+
+</head>
+<body>
+	<h1>Medlemsliste</h1>
+	<table id="medlemstabell">
+		<tr>
+			<th>Fornavn</th>
+			<th>Etternavn</th>
+			<th>Adresse</th>
+			<th>Telefon</th>
+		</tr>
+	</table>
+	<div id="svar" ></div>
+	<form action="">
+		<input type="hidden" value="-1" id="logId" /> <input type="hidden"
+			value="" id="slettId" />
+		<p>
+			<button type="button" id="newMember">Nytt medlem</button>
+		</p>
+	</form>
+</body>
+</html>
